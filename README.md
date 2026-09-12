@@ -2,10 +2,6 @@
 
 Penelitian komputasi histopatologi hati (*Liver Histopathology*) berbasis Deep Learning untuk segmentasi jaringan klinis (**Necrosis**, **Normal**, **Steatosis**) dengan skenario data terbatas (~40 citra mikroskopis H&E tanpa augmentasi data).
 
-- **Target Publikasi**: Jurnal Bereputasi Terindeks Scopus (Q2 - Q3)
-- **Kolaborator / Co-Author**: Dr. Novanto Yudistira (FILKOM Universitas Brawijaya)
-- **Hardware**: NVIDIA GeForce RTX 5070 (12 GB VRAM)
-
 ---
 
 ## 🔬 Sorotan Metodologi (Novelty & Kontribusi)
