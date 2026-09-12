@@ -196,20 +196,3 @@ File tabel akan dibuat secara otomatis di:
 python evaluation/visualize_results.py --img data/liver_primary/processed/images/sample.png --gt data/liver_primary/processed/labels/sample.txt --out results/figures/figure_comparison.png
 ```
 *Menghasilkan gambar beresolusi tinggi bersanding: (a) Original H&E Patch | (b) Ground Truth | (c) Baseline YOLOv8 | (d) YOLOv8 + CARAFE | (e) Proposed CARAFE + WIoU lengkap dengan legenda dan kontur.*
-
----
-
-## 🎯 Target Publikasi Scopus & Tips Sukses Reviewer
-
-| Jurnal | Kuartil | Penerbit | Fokus & Keunggulan |
-|---|---|---|---|
-| **Informatics in Medicine Unlocked** | **Q2 - Q3** | Elsevier | Menerima applied deep learning medical informatics dengan small clinical cohort. Review cepat dan open access. |
-| **Journal of King Saud University - CIS** | **Q2** | Elsevier | Rutin mempublikasikan modifikasi YOLO & attention-based medical image analysis. |
-| **Computers in Biology and Medicine** | **Q1 - Q2** | Elsevier | Target ambisius yang sangat prestisius jika eksperimen 5-Fold & uji statistik menunjukkan p < 0.01. |
-| **International Journal of Electrical and Computer Engineering (IJECE)** | **Q3** | IAES | Terindeks Scopus, peer-review terstruktur, sangat realistis untuk luaran cepat. |
-
-### Tips Menjawab Reviewer Mengenai Data Terbatas (~40 citra):
-1. **Tiling Preprocessing**: Jelaskan di metodologi bahwa citra dipotong menjadi ratusan sub-patch 512×512 menggunakan standar baku *Digital Pathology WSI Tiling*, bukan manipulasi sintetis.
-2. **Slide-Level Split**: Tunjukkan bahwa pemisahan data 5-Fold dilakukan per slide/pasien sehingga *zero data leakage*.
-3. **Kredibilitas Ground Truth**: Lampirkan nilai kesepakatan 2 patolog klinis (**Cohen's Kappa $\kappa > 0.80$**).
-4. **Validasi Statistik**: Cantumkan nilai **$p < 0.05$ dari Wilcoxon Signed-Rank Test** untuk membuktikan peningkatan performa signifikan secara statistik.
