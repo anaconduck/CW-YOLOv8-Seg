@@ -1,0 +1,109 @@
+"""
+Stain Normalization using Macenko's Method for Histopathology H&E Images.
+Normalizes color variance across different hospital slide staining batches.
+Reference: Macenko et al., "A method for normalizing histology slides for quantitative analysis", ISBI 2009.
+"""
+
+import numpy as np
+import cv2
+
+
+class MacenkoNormalizer:
+    """
+    Macenko H&E Stain Normalizer.
+    Calculates Optical Density (OD), estimates stain vectors using SVD, and maps to target reference.
+    """
+    def __init__(
+        self,
+        Io: float = 240.0,
+        alpha: float = 1.0,
+        beta: float = 0.15
+    ):
+        self.Io = Io
+        self.alpha = alpha
+        self.beta = beta
+
+        # Default standard reference stain vectors and maximum concentrations (from Macenko reference)
+        self.HERef = np.array([
+            [0.5626, 0.2159],
+            [0.7201, 0.8012],
+            [0.4062, 0.5581]
+        ])
+        self.maxCRef = np.array([1.9705, 1.0308])
+
+    def fit(self, target_img_rgb: np.ndarray):
+        """Fit reference stain vectors and max concentration from a target reference image."""
+        HE, maxC = self._get_stain_matrix_and_max_c(target_img_rgb)
+        if HE is not None:
+            self.HERef = HE
+            self.maxCRef = maxC
+
+    def _get_stain_matrix_and_max_c(self, img_rgb: np.ndarray):
+        # Convert RGB to Optical Density (OD)
+        img_rgb = img_rgb.astype(np.float64)
+        OD = -np.log((img_rgb + 1.0) / self.Io)
+        ODhat = OD.reshape(-1, 3)
+
+        # Remove transparent / background pixels (OD < beta)
+        mask = (ODhat > self.beta).any(axis=1)
+        ODhat = ODhat[mask]
+        if ODhat.shape[0] < 100:
+            return None, None
+
+        # Eigenvectors corresponding to two largest eigenvalues of OD covariance
+        _, V = np.linalg.eigh(np.cov(ODhat, rowvar=False))
+        # Keep two largest eigenvectors
+        V = V[:, [2, 1]]
+
+        # Project ODhat onto plane spanned by eigenvectors
+        That = np.dot(ODhat, V)
+        phi = np.arctan2(That[:, 1], That[:, 0])
+
+        min_phi = np.percentile(phi, self.alpha)
+        max_phi = np.percentile(phi, 100 - self.alpha)
+
+        vMin = np.dot(V, np.array([np.cos(min_phi), np.sin(min_phi)]))
+        vMax = np.dot(V, np.array([np.cos(max_phi), np.sin(max_phi)]))
+
+        # Order vectors: Hematoxylin first, Eosin second
+        if vMin[0] > vMax[0]:
+            HE = np.array([vMin, vMax]).T
+        else:
+            HE = np.array([vMax, vMin]).T
+
+        # Calculate concentrations
+        Y = np.reshape(OD, (-1, 3)).T
+        C, _, _, _ = np.linalg.lstsq(HE, Y, rcond=None)
+        maxC = np.percentile(C, 99, axis=1)
+
+        return HE, maxC
+
+    def transform(self, img_rgb: np.ndarray) -> np.ndarray:
+        """
+        Normalize an input RGB image to the reference stain style.
+        """
+        orig_shape = img_rgb.shape
+        img_rgb = img_rgb.astype(np.float64)
+        OD = -np.log((img_rgb + 1.0) / self.Io)
+        ODhat = OD.reshape(-1, 3)
+
+        HE, maxC = self._get_stain_matrix_and_max_c(img_rgb)
+        if HE is None or maxC is None:
+            # If image has insufficient stain content, return original
+            return img_rgb.astype(np.uint8)
+
+        # Calculate concentrations with source HE
+        Y = np.reshape(OD, (-1, 3)).T
+        C, _, _, _ = np.linalg.lstsq(HE, Y, rcond=None)
+
+        # Normalize concentrations
+        maxC = np.maximum(maxC, 1e-6)
+        C = C * (self.maxCRef[:, np.newaxis] / maxC[:, np.newaxis])
+
+        # Reconstruct image with reference stain matrix
+        normalized_OD = np.dot(self.HERef, C)
+        normalized_img = self.Io * np.exp(-normalized_OD)
+        normalized_img = normalized_img.T.reshape(orig_shape)
+        normalized_img = np.clip(normalized_img, 0, 255).astype(np.uint8)
+
+        return normalized_img

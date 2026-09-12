@@ -1,0 +1,84 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+share/python-wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual Environments
+venv/
+.venv/
+env/
+ENV/
+env.bak/
+venv.bak/
+
+# Deep Learning weights & checkpoints
+*.pt
+*.pth
+*.pwf
+*.onnx
+*.engine
+*.tflite
+*.ckpt
+
+# Training runs & logs
+runs/
+results/
+wandb/
+*.log
+
+# Histopathology Large Datasets (Keep folder structure, ignore large binaries)
+data/pannuke/*.zip
+data/pannuke/*.tar.gz
+data/pannuke/*.npy
+data/pannuke/zips/
+data/pannuke/raw/
+data/pannuke/yolo_format/
+data/liver_primary/raw_images/*
+!data/liver_primary/raw_images/README.txt
+data/liver_primary/raw_annotations/*
+!data/liver_primary/raw_annotations/README.txt
+data/liver_primary/processed/
+data/kfold_splits/
+
+# IDE & Editor settings
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# AI Agent & Workspace configurations
+.agents/
+
