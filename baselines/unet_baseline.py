@@ -1,8 +1,4 @@
-"""
-External SOTA Baseline: U-Net for Histopathology Multi-Class Tissue Segmentation.
-Provides comparison benchmark required by Q1 journal reviewers:
-Compares Proposed YOLOv8s-CARAFE-WIoU against standard medical semantic segmentation baseline (U-Net).
-"""
+"""U-Net baseline for multi-class tissue segmentation."""
 
 import sys
 import argparse
@@ -14,14 +10,12 @@ from torch.utils.data import Dataset, DataLoader
 import numpy as np
 import cv2
 
-# Add project root to sys.path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 
 class DoubleConv(nn.Module):
-    """(Convolution => [BN] => ReLU) * 2"""
     def __init__(self, in_channels, out_channels):
         super().__init__()
         self.double_conv = nn.Sequential(
@@ -38,7 +32,6 @@ class DoubleConv(nn.Module):
 
 
 class UNet(nn.Module):
-    """Standard U-Net Architecture for Medical Image Segmentation."""
     def __init__(self, n_channels=3, n_classes=3):
         super().__init__()
         self.n_channels = n_channels
@@ -88,7 +81,6 @@ class UNet(nn.Module):
 
 
 class HistologyPatchDataset(Dataset):
-    """Dataset loader for histology patches."""
     def __init__(self, img_dir: Path, lbl_dir: Path, img_size: int = 512):
         self.img_files = sorted(list(img_dir.glob("*.png")) + list(img_dir.glob("*.jpg")))
         self.lbl_dir = lbl_dir
@@ -103,7 +95,6 @@ class HistologyPatchDataset(Dataset):
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         img = cv2.resize(img, (self.img_size, self.img_size))
 
-        # Reconstruct mask from label
         lbl_path = self.lbl_dir / f"{img_path.stem}.txt"
         mask = np.zeros((self.img_size, self.img_size), dtype=np.int64)
 
@@ -118,7 +109,6 @@ class HistologyPatchDataset(Dataset):
                         pts[:, 1] *= self.img_size
                         cv2.fillPoly(mask, [pts.astype(np.int32)], cls_id)
 
-        # Normalize image to [0, 1] and transpose to (C, H, W)
         img_tensor = torch.from_numpy(img.transpose(2, 0, 1)).float() / 255.0
         mask_tensor = torch.from_numpy(mask).long()
 
@@ -132,14 +122,13 @@ def train_unet_baseline(
     lr: float = 1e-4,
     device: str = "0"
 ):
-    """Trains U-Net baseline on the histology dataset."""
     dev = torch.device(f"cuda:{device}" if torch.cuda.is_available() else "cpu")
-    print(f"[INFO] Training U-Net Baseline on device: {dev}")
+    print(f"[INFO] Training U-Net on {dev}")
 
     dataset_path = Path(data_dir)
     train_dataset = HistologyPatchDataset(dataset_path / "images", dataset_path / "labels")
     if len(train_dataset) == 0:
-        print("[WARN] No processed patches found. Run data/preprocessing/tiling.py first.")
+        print("[WARN] No processed patches found in dataset directory.")
         return
 
     loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True, num_workers=2)
@@ -164,18 +153,18 @@ def train_unet_baseline(
             avg_loss = total_loss / max(len(loader), 1)
             print(f"Epoch [{epoch}/{epochs}] - Loss: {avg_loss:.4f}")
 
-    # Save baseline weights
     out_weights = PROJECT_ROOT / "results" / "checkpoints" / "unet_baseline.pth"
     out_weights.parent.mkdir(parents=True, exist_ok=True)
     torch.save(model.state_dict(), str(out_weights))
-    print(f"[SUCCESS] U-Net Baseline trained and saved to: {out_weights}")
+    print(f"[INFO] Weights saved to {out_weights}")
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Train U-Net Medical Segmentation Baseline")
+    parser = argparse.ArgumentParser(description="Train U-Net baseline")
     parser.add_argument("--epochs", type=int, default=60)
     parser.add_argument("--batch", type=int, default=8)
     parser.add_argument("--device", type=str, default="0")
     args = parser.parse_args()
 
     train_unet_baseline(epochs=args.epochs, batch_size=args.batch, device=args.device)
+

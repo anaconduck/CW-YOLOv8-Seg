@@ -1,13 +1,10 @@
-# YOLOv8 Dataset Configuration for Liver Histopathology Tissue Segmentation
-# Classes: 3 clinical liver tissue classes
-
 path: data/liver_primary/processed
 train: images/train
 val: images/val
 test: images/test
 
-# Classes mapping
 names:
   0: necrosis
   1: normal
   2: steatosis
+

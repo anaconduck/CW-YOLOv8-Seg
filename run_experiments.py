@@ -1,7 +1,4 @@
-"""
-Master Pipeline Orchestrator for Histopathology Research.
-Provides a unified CLI interface to execute data preparation, pre-training, fine-tuning, 5-fold CV, and ablation reporting.
-"""
+"""Pipeline runner for model training and evaluation."""
 
 import sys
 import subprocess
@@ -12,7 +9,6 @@ PROJECT_ROOT = Path(__file__).resolve().parent
 
 
 def run_cmd(cmd_list, desc: str):
-    """Executes a command and streams output."""
     print("\n" + "=" * 75)
     print(f"[STAGE] {desc}")
     print("Command: " + " ".join(cmd_list))
@@ -24,9 +20,7 @@ def run_cmd(cmd_list, desc: str):
 
 
 def main():
-    parser = argparse.ArgumentParser(
-        description="Master CLI for CARAFE-Enhanced YOLOv8 with Wise-IoU Histopathology Research"
-    )
+    parser = argparse.ArgumentParser(description="Pipeline runner for liver histopathology segmentation")
     parser.add_argument(
         "--stage",
         type=str,
@@ -43,12 +37,11 @@ def main():
         help="Pipeline stage to execute"
     )
     parser.add_argument("--epochs", type=int, default=80, help="Epoch count")
-    parser.add_argument("--batch", type=int, default=16, help="Batch size for RTX 5070")
-    parser.add_argument("--device", type=str, default="0", help="CUDA Device ID")
-    parser.add_argument("--weights", type=str, default=None, help="Pretrained weights path for fine-tuning")
+    parser.add_argument("--batch", type=int, default=16, help="Batch size")
+    parser.add_argument("--device", type=str, default="0", help="CUDA device ID")
+    parser.add_argument("--weights", type=str, default=None, help="Pretrained weights path")
 
     args = parser.parse_args()
-
     py = sys.executable
 
     if args.stage == "download_pannuke":
@@ -60,31 +53,30 @@ def main():
     elif args.stage == "pretrain_pannuke":
         run_cmd(
             [py, "training/pretrain_pannuke.py", "--epochs", str(args.epochs), "--batch", str(args.batch), "--device", args.device, "--loss", "wiou_v3"],
-            "Stage 1: Pre-training on PanNuke with CARAFE + WIoU v3"
+            "Pre-training on PanNuke"
         )
 
     elif args.stage == "finetune_liver":
         weights = args.weights or "results/pannuke_pretrained_carafe_wiou/weights/best.pt"
         run_cmd(
             [py, "training/finetune_liver.py", "--weights", weights, "--epochs", str(args.epochs), "--batch", str(args.batch), "--device", args.device, "--loss", "wiou_v3"],
-            "Stage 2: Fine-tuning on Liver Primary Dataset (Zero Augmentation)"
+            "Fine-tuning on Liver Dataset"
         )
 
     elif args.stage == "kfold_cv":
         weights = args.weights or "results/pannuke_pretrained_carafe_wiou/weights/best.pt"
         run_cmd(
             [py, "training/kfold_cv.py", "--weights", weights, "--epochs", str(args.epochs), "--batch", str(args.batch), "--device", args.device, "--loss", "wiou_v3"],
-            "5-Fold Slide-Level Cross Validation"
+            "5-Fold Cross Validation"
         )
 
     elif args.stage == "ablation":
-        print("\n[INFO] Running Full Ablation Matrix (E1 to E5)...")
-        # Can run multiple configs
-        print("[INFO] Refer to training/finetune_liver.py with loss combinations.")
+        print("[INFO] Running ablation study...")
 
     elif args.stage == "report":
-        run_cmd([py, "evaluation/ablation_study.py"], "Generate LaTeX & Markdown Tables for Manuscript")
+        run_cmd([py, "evaluation/ablation_study.py"], "Generate Ablation Tables")
 
 
 if __name__ == "__main__":
     main()
+

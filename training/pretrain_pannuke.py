@@ -1,14 +1,9 @@
-"""
-Stage 1: Pre-training YOLOv8-CARAFE-WIoU on PanNuke Dataset.
-Pre-trains backbone and neck features on 189,744 multi-tissue nuclei annotations.
-Checkpoints will serve as weights initialization for Stage 2 liver fine-tuning.
-"""
+"""Pre-training on PanNuke dataset."""
 
 import sys
 import argparse
 from pathlib import Path
 
-# Add project root to sys.path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
@@ -28,25 +23,20 @@ def run_pretraining(
     output_name: str = "pannuke_pretrained"
 ):
     print("=" * 70)
-    print("STAGE 1: PanNuke Pre-training (Nuclei Instance Segmentation)")
+    print("PanNuke Pre-training")
     print(f"Model Configuration: {model_cfg}")
     print(f"Dataset: {data_yaml}")
-    print(f"Device: {device} (RTX 5070)")
-    print(f"BBox Loss: {loss_type}")
+    print(f"Loss: {loss_type}")
     print("=" * 70)
 
-    # 1. Register CARAFE module in Ultralytics
     register_carafe_to_ultralytics()
 
-    # 2. Patch loss with Wise-IoU if requested
     if "wiou" in loss_type.lower():
         v = 3 if "v3" in loss_type.lower() else (2 if "v2" in loss_type.lower() else 1)
         patch_ultralytics_loss_with_wiou(version=v)
 
-    # 3. Initialize model
     model = YOLO(model_cfg)
 
-    # 4. Run pre-training
     save_dir = PROJECT_ROOT / "results" / output_name
     save_dir.mkdir(parents=True, exist_ok=True)
 
@@ -67,22 +57,22 @@ def run_pretraining(
         weight_decay=0.0005,
         save=True,
         plots=True,
-        seed=42,          # Fixed random seed for strict reproducibility
-        deterministic=True,# Deterministic CUDA execution
+        seed=42,
+        deterministic=True,
         close_mosaic=10
     )
 
-    print(f"[SUCCESS] Pre-training completed! Checkpoints saved at {save_dir / 'weights'}")
+    print(f"[INFO] Pre-training finished. Weights saved in {save_dir / 'weights'}")
     return results
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Pre-train YOLOv8-CARAFE on PanNuke dataset")
-    parser.add_argument("--data", type=str, default="data/pannuke.yaml", help="Path to data yaml")
+    parser = argparse.ArgumentParser(description="Pre-train model on PanNuke dataset")
+    parser.add_argument("--data", type=str, default="data/pannuke.yaml", help="Path to data YAML")
     parser.add_argument("--cfg", type=str, default="models/configs/yolov8s-seg-carafe.yaml", help="Path to model config")
-    parser.add_argument("--epochs", type=int, default=100, help="Number of training epochs")
-    parser.add_argument("--batch", type=int, default=16, help="Batch size (optimal for RTX 5070)")
-    parser.add_argument("--imgsz", type=int, default=256, help="Image size (PanNuke standard is 256x256)")
+    parser.add_argument("--epochs", type=int, default=100, help="Number of epochs")
+    parser.add_argument("--batch", type=int, default=16, help="Batch size")
+    parser.add_argument("--imgsz", type=int, default=256, help="Image size")
     parser.add_argument("--device", type=str, default="0", help="CUDA device ID")
     parser.add_argument("--loss", type=str, default="wiou_v3", choices=["wiou_v3", "wiou_v2", "wiou_v1", "ciou"])
     parser.add_argument("--name", type=str, default="pannuke_pretrained_carafe_wiou", help="Run name")
@@ -98,3 +88,4 @@ if __name__ == "__main__":
         loss_type=args.loss,
         output_name=args.name
     )
+

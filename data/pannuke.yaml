@@ -1,6 +1,3 @@
-# YOLOv8 Dataset Configuration for PanNuke Nuclei Segmentation (Pre-training Stage 1)
-# Classes: 5 nuclei types across 19 tissues (including liver)
-
 path: data/pannuke/yolo_format
 train: images/train
 val: images/val
@@ -12,3 +9,4 @@ names:
   2: connective
   3: dead
   4: epithelial
+

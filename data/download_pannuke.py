@@ -1,22 +1,4 @@
-"""
-PanNuke Dataset Downloader & YOLOv8-Seg Format Converter.
-Downloads the official 3 folds of PanNuke from Zenodo and converts
-(images.npy, masks.npy, types.npy) into standard YOLOv8 instance segmentation format.
-
-Zenodo Record: https://zenodo.org/records/3901844
-Classes:
-  0: Neoplastic
-  1: Inflammatory
-  2: Connective
-  3: Dead
-  4: Non-neoplastic Epithelial
-
-DO NOT RUN AUTOMATICALLY: Execute manually from terminal when ready.
-Usage:
-    python data/download_pannuke.py
-    python data/download_pannuke.py --download_only
-    python data/download_pannuke.py --convert_only
-"""
+"""PanNuke dataset downloader and YOLOv8 segmentation converter."""
 
 import os
 import sys
@@ -28,8 +10,6 @@ import numpy as np
 import cv2
 from tqdm import tqdm
 
-
-# Official Zenodo download URLs for PanNuke (Record 3901844)
 PANNUKE_URLS = {
     "fold1": "https://zenodo.org/records/3901844/files/Part%201.zip?download=1",
     "fold2": "https://zenodo.org/records/3901844/files/Part%202.zip?download=1",
@@ -38,7 +18,6 @@ PANNUKE_URLS = {
 
 
 class DownloadProgressBar(tqdm):
-    """Progress bar hook for urllib.request."""
     def update_to(self, b=1, bsize=1, tsize=None):
         if tsize is not None:
             self.total = tsize
@@ -46,7 +25,6 @@ class DownloadProgressBar(tqdm):
 
 
 def download_file(url: str, output_path: Path):
-    """Downloads a file with a dynamic progress bar."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
     if output_path.exists() and output_path.stat().st_size > 1000000:
         print(f"[INFO] {output_path.name} already exists. Skipping download.")
@@ -58,12 +36,10 @@ def download_file(url: str, output_path: Path):
 
 
 def extract_zip(zip_path: Path, extract_to: Path):
-    """Extracts zip archive."""
     print(f"[INFO] Extracting {zip_path.name} to {extract_to}...")
     extract_to.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(zip_path, 'r') as zip_ref:
         zip_ref.extractall(extract_to)
-    print(f"[SUCCESS] Extracted {zip_path.name}")
 
 
 def convert_fold_to_yolo(
@@ -73,20 +49,9 @@ def convert_fold_to_yolo(
     fold_prefix: str = "f1",
     min_polygon_points: int = 3
 ):
-    """
-    Converts PanNuke .npy files into YOLOv8-seg images (.png) and labels (.txt).
-    PanNuke masks format: shape (N, 256, 256, 6)
-      Channel 0: Neoplastic
-      Channel 1: Inflammatory
-      Channel 2: Connective
-      Channel 3: Dead
-      Channel 4: Epithelial
-      Channel 5: Background
-    """
     output_img_dir.mkdir(parents=True, exist_ok=True)
     output_lbl_dir.mkdir(parents=True, exist_ok=True)
 
-    # Locate images.npy and masks.npy (handle nested folders after unzipping)
     img_npy_candidates = list(fold_dir.rglob("images.npy"))
     mask_npy_candidates = list(fold_dir.rglob("masks.npy"))
 
@@ -97,45 +62,35 @@ def convert_fold_to_yolo(
     img_path = img_npy_candidates[0]
     mask_path = mask_npy_candidates[0]
 
-    print(f"[INFO] Loading {img_path.name} and {mask_path.name}...")
-    images = np.load(str(img_path))  # Shape: (N, 256, 256, 3)
-    masks = np.load(str(mask_path))    # Shape: (N, 256, 256, 6)
+    images = np.load(str(img_path))
+    masks = np.load(str(mask_path))
     N, H, W, _ = images.shape
 
     converted_count = 0
 
     for i in tqdm(range(N), desc=f"Converting {fold_prefix}"):
         img_rgb = images[i].astype(np.uint8)
-        mask_multi = masks[i]  # (256, 256, 6)
+        mask_multi = masks[i]
 
-        # Save image as PNG
         img_filename = f"{fold_prefix}_{i:05d}.png"
         cv2.imwrite(str(output_img_dir / img_filename), cv2.cvtColor(img_rgb, cv2.COLOR_RGB2BGR))
 
-        # Extract polygons per nuclei class (channels 0 through 4)
         label_lines = []
-
         for cls_idx in range(5):
             cls_mask = mask_multi[:, :, cls_idx]
-            # Each individual nucleus instance has an integer ID or positive binary value
-            # Extract unique instances
             unique_ids = np.unique(cls_mask)
             unique_ids = unique_ids[unique_ids > 0]
 
             for inst_id in unique_ids:
                 inst_binary = (cls_mask == inst_id).astype(np.uint8)
-
-                # Find contours using OpenCV
                 contours, _ = cv2.findContours(inst_binary, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
                 for cnt in contours:
-                    # Simplify contour
                     epsilon = 0.015 * cv2.arcLength(cnt, True)
                     approx = cv2.approxPolyDP(cnt, epsilon, True)
 
                     if len(approx) >= min_polygon_points:
                         coords = approx.reshape(-1, 2)
-                        # Normalize to [0.0, 1.0]
                         norm_x = np.clip(coords[:, 0] / W, 0.0, 1.0)
                         norm_y = np.clip(coords[:, 1] / H, 0.0, 1.0)
 
@@ -146,7 +101,6 @@ def convert_fold_to_yolo(
                         if len(flat_pts) >= 6:
                             label_lines.append(f"{cls_idx} " + " ".join(flat_pts))
 
-        # Save label file
         lbl_filename = f"{fold_prefix}_{i:05d}.txt"
         with open(output_lbl_dir / lbl_filename, 'w', encoding='utf-8') as f:
             f.write("\n".join(label_lines))
@@ -159,8 +113,8 @@ def convert_fold_to_yolo(
 def main():
     parser = argparse.ArgumentParser(description="Download and prepare PanNuke dataset for YOLOv8-seg")
     parser.add_argument("--data_dir", type=str, default="data/pannuke", help="Base directory to store PanNuke")
-    parser.add_argument("--download_only", action="store_true", help="Only download zip files without converting")
-    parser.add_argument("--convert_only", action="store_true", help="Only convert existing .npy files without downloading")
+    parser.add_argument("--download_only", action="store_true", help="Only download zip files")
+    parser.add_argument("--convert_only", action="store_true", help="Only convert existing .npy files")
     args = parser.parse_args()
 
     base_dir = Path(args.data_dir).resolve()
@@ -171,11 +125,7 @@ def main():
     zips_dir.mkdir(parents=True, exist_ok=True)
     raw_dir.mkdir(parents=True, exist_ok=True)
 
-    # 1. Download Folds
     if not args.convert_only:
-        print("=" * 60)
-        print("STEP 1: Downloading PanNuke Folds from Zenodo")
-        print("=" * 60)
         for fold_name, url in PANNUKE_URLS.items():
             zip_dest = zips_dir / f"{fold_name}.zip"
             download_file(url, zip_dest)
@@ -183,36 +133,22 @@ def main():
             extract_zip(zip_dest, fold_extract)
 
     if args.download_only:
-        print("[SUCCESS] Downloads and extractions complete.")
         return
 
-    # 2. Convert to YOLOv8-seg format
-    # Split strategy: Fold 1 + Fold 2 -> Train, Fold 3 -> Validation (Official PanNuke split)
-    print("\n" + "=" * 60)
-    print("STEP 2: Converting PanNuke to YOLOv8-seg format")
-    print("=" * 60)
-
-    # Train Split (Fold 1 + Fold 2)
     train_img_dir = yolo_dir / "images" / "train"
     train_lbl_dir = yolo_dir / "labels" / "train"
 
     f1_count = convert_fold_to_yolo(raw_dir / "fold1", train_img_dir, train_lbl_dir, fold_prefix="f1")
     f2_count = convert_fold_to_yolo(raw_dir / "fold2", train_img_dir, train_lbl_dir, fold_prefix="f2")
 
-    # Val Split (Fold 3)
     val_img_dir = yolo_dir / "images" / "val"
     val_lbl_dir = yolo_dir / "labels" / "val"
     f3_count = convert_fold_to_yolo(raw_dir / "fold3", val_img_dir, val_lbl_dir, fold_prefix="f3")
 
-    print("\n" + "=" * 60)
-    print("PANNUKE PREPARATION SUMMARY")
-    print("=" * 60)
-    print(f"Train Images (Folds 1 & 2): {f1_count + f2_count}")
-    print(f"Validation Images (Fold 3) : {f3_count}")
     print(f"Dataset ready at: {yolo_dir}")
-    print(f"Data YAML: data/pannuke.yaml")
-    print("=" * 60)
+    print(f"Train samples: {f1_count + f2_count}, Val samples: {f3_count}")
 
 
 if __name__ == "__main__":
     main()
+

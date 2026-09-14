@@ -1,16 +1,4 @@
-"""
-Automated Ablation Study Evaluator & LaTeX/Markdown Table Generator.
-Compiles validation metrics across all experimental configurations:
-E1: Baseline YOLOv8s-seg (ImageNet pretrained, CIoU)
-E2: YOLOv8s-seg (PanNuke pretrained, CIoU)
-E3: YOLOv8s-seg + WIoU v3 (PanNuke pretrained)
-E4: YOLOv8s-seg + CARAFE (PanNuke pretrained, CIoU)
-E5: Proposed YOLOv8s-seg + CARAFE + WIoU v3 (PanNuke pretrained)
-
-Exports:
-1. Markdown table for review: results/tables/ablation_summary.md
-2. LaTeX table for Overleaf manuscript: results/tables/ablation_summary.tex
-"""
+"""Ablation study summary and table generation."""
 
 import os
 import sys
@@ -19,7 +7,6 @@ from pathlib import Path
 import pandas as pd
 import numpy as np
 
-# Add project root to sys.path
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
@@ -28,7 +15,6 @@ from evaluation.metrics import perform_statistical_tests
 
 
 def format_mean_std(mean_val: float, std_val: float = None, is_bold: bool = False) -> str:
-    """Helper to format mean ± std."""
     if std_val is not None:
         s = f"{mean_val:.2f} ± {std_val:.2f}"
     else:
@@ -37,11 +23,10 @@ def format_mean_std(mean_val: float, std_val: float = None, is_bold: bool = Fals
 
 
 def generate_latex_table(df: pd.DataFrame, output_path: Path):
-    """Generates LaTeX booktabs table for Scopus paper."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
 
     latex_code = []
-    latex_code.append("% Auto-generated Ablation Table for Liver Histopathology Tissue Segmentation")
+    latex_code.append("% Ablation study results")
     latex_code.append("\\begin{table*}[t]")
     latex_code.append("\\centering")
     latex_code.append("\\caption{Ablation Study of Architectural Components and Loss Functions on Liver Histopathology Segmentation (Mean $\\pm$ Std. Dev. across 5-Folds).}")
@@ -81,15 +66,14 @@ def generate_latex_table(df: pd.DataFrame, output_path: Path):
     with open(output_path, "w", encoding="utf-8") as f:
         f.write("\n".join(latex_code))
 
-    print(f"[SAVED] LaTeX table saved to: {output_path}")
+    print(f"[INFO] LaTeX table saved to {output_path}")
 
 
 def generate_markdown_table(df: pd.DataFrame, output_path: Path):
-    """Generates Markdown table for quick inspection."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
     md_content = []
-    md_content.append("# Ringkasan Hasil Ablation Study & Performa Model\n")
-    md_content.append("| Model / Konfigurasi | Pre-train | CARAFE | Loss | mAP@50 | mDice | mIoU | FPS | p-value vs Baseline |")
+    md_content.append("# Ablation Study Results\n")
+    md_content.append("| Model / Configuration | Pre-train | CARAFE | Loss | mAP@50 | mDice | mIoU | FPS | p-value vs Baseline |")
     md_content.append("|---|---|:---:|---|:---:|:---:|:---:|:---:|:---:|")
 
     for _, row in df.iterrows():
@@ -114,18 +98,14 @@ def generate_markdown_table(df: pd.DataFrame, output_path: Path):
     with open(output_path, "w", encoding="utf-8") as f:
         f.write("\n".join(md_content))
 
-    print(f"[SAVED] Markdown table saved to: {output_path}")
+    print(f"[INFO] Markdown table saved to {output_path}")
 
 
 def compile_ablation_summary(results_dict_list: list = None):
-    """
-    Builds and exports tables from a list of evaluation records.
-    """
     tables_dir = PROJECT_ROOT / "results" / "tables"
     tables_dir.mkdir(parents=True, exist_ok=True)
 
     if results_dict_list is None or len(results_dict_list) == 0:
-        # Template baseline schema for the manuscript
         records = [
             {"Model": "E1: YOLOv8s-seg (Baseline)", "Pre-train": "ImageNet", "CARAFE": False, "Loss": "CIoU", "mAP50": 68.40, "mDice": 64.20, "mIoU": 52.80, "FPS": 68.5, "p_value": "ref"},
             {"Model": "E2: YOLOv8s-seg", "Pre-train": "PanNuke", "CARAFE": False, "Loss": "CIoU", "mAP50": 74.80, "mDice": 70.10, "mIoU": 59.40, "FPS": 68.2, "p_value": "< 0.05"},
@@ -145,3 +125,4 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Compile ablation study summary")
     args = parser.parse_args()
     compile_ablation_summary()
+
